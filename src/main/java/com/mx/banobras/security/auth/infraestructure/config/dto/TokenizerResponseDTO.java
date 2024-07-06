@@ -1,9 +1,9 @@
 package com.mx.banobras.security.auth.infraestructure.config.dto;
 
 /**
- * LdapResponseDTO.java:
+ * TokenizerResponseDTO.java:
  * 
- * Objeto que contiene los datos de respuesta de la autenticacion. 
+ * Objeto que contiene los datos de respuesta de generacion del Token. 
  *  
  * @author Marcos Gonzalez
  * @version 1.0, 13/06/2024
@@ -13,10 +13,9 @@ package com.mx.banobras.security.auth.infraestructure.config.dto;
 import lombok.Data;
 
 @Data
-public class LdapResponseDTO {
+public class TokenizerResponseDTO {
 	private Integer statusCode;
-	private LdapDTO ldapDTO;
-	
+	private TokenDTO tokenDTO;
 	private ErrorMessageDTO errorMessageDTO;
 }
 

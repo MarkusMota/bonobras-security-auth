@@ -57,8 +57,6 @@ public class SecurityAuthApp implements CommandLineRunner{
 		log.info("   " + dInv +"_" + dInv + "_" + dInv + "_" + dInv + "===================================================");
 		log.info("        **                    Security Ahutenticator is online!");
 		log.info("REST APP SYNC ::::");
-
-
 	}
 	
 	

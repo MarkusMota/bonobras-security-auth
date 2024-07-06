@@ -1,15 +1,14 @@
 package com.mx.banobras.security.auth.infraestructure.adapter.input.controller;
 
 /**
- * TokenizerController.java:
+ * SecurityAuthController.java:
  * 
- * Clase controller que expone los servicios Rest para validar y generar el
- * token
+ * Clase controller que expone los servicios para autenticar y cifrar datos
  * 
  * @author Marcos Gonzalez
  * @version 1.0, 13/06/2024
- * @see documento "MAR - Marco Arquitectonico de Referencia"
- * @since jdk 17
+ * @see Documento "MAR - Marco Arquitectonico de Referencia"
+ * @since JDK 17
  */
 
 import java.net.InetAddress;
@@ -27,7 +26,6 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.mx.banobras.security.auth.application.inputport.ISecurityAuthInputPort;
-import com.mx.banobras.security.auth.common.util.CipherAESCommon;
 import com.mx.banobras.security.auth.common.util.CommonConstant;
 import com.mx.banobras.security.auth.infraestructure.config.dto.CipherResponseDTO;
 import com.mx.banobras.security.auth.infraestructure.config.dto.ErrorMessageDTO;
@@ -71,10 +69,77 @@ public class SecurityAuthController {
 	 * @throws Exception Excepción durante el proceso de generar el Token.
 	 * 
 	 */
-	@PostMapping("/auth")
-	public ResponseEntity<LdapResponseDTO> ldapAuth(
+	@PostMapping("/auth-token-ldap")
+	public ResponseEntity<LdapResponseDTO> ldapTokenAuth(
 			@RequestHeader(value = "credentials") String credentials,
 			@RequestHeader(value = "auth-token") String jwtToken,
+			@RequestHeader(value = "application") String application,
+			@RequestHeader(value = "consumer-api-id") String consumerApiId,
+			@RequestHeader(value = "functional-id") String functionalId,
+			@RequestHeader(value = "transaction-id") String transactionId) {
+
+		LdapResponseDTO ldapResponseDTO = null;
+		SecurityAuthDTO securityAuthDTO = null;
+		ErrorMessageDTO errorMessage = null;
+
+		try {
+			/** String remoteHost = request.getRemoteHost(); */
+			String remoteHost = getIpRemoteAdress();
+			// Agrega parametros para que se muestren en el Log
+			ThreadContext.put("transaction-id", transactionId);
+			ThreadContext.put("ip", remoteHost);
+
+			log.info("Inicia autenticacion Token-LDAP");
+			securityAuthDTO = new SecurityAuthDTO(credentials, null,null, jwtToken, application, consumerApiId, functionalId, transactionId);
+			ldapResponseDTO = iSecurityAuthInputPort.authenticationTokenLdap(securityAuthDTO);
+			
+			// Valida el resultado en la generacio del token
+			if (ldapResponseDTO.getStatusCode() == 200) {
+				log.info("Datos correctos");
+				return new ResponseEntity<>(ldapResponseDTO, HttpStatus.OK);
+			} else {
+				log.info("Datos incorrectos");
+				return new ResponseEntity<>(ldapResponseDTO, HttpStatus.valueOf(ldapResponseDTO.getStatusCode()) );
+			}
+		} catch (IllegalArgumentException eil) {
+			log.error(CommonConstant.ILLEGAL_ARG_EXCEPTION.getName(), eil);
+			errorMessage = new ErrorMessageDTO(HttpStatus.INTERNAL_SERVER_ERROR.value(), new Date(), eil.getMessage());
+			ldapResponseDTO = new LdapResponseDTO();
+			ldapResponseDTO.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
+			ldapResponseDTO.setErrorMessageDTO(errorMessage);
+			return new ResponseEntity<>(ldapResponseDTO, HttpStatus.valueOf(ldapResponseDTO.getStatusCode()));
+		}  catch (Exception e) {
+			log.error(CommonConstant.COMMUNICATION_EXCEPTION_LDAP.getName());
+			log.error(CommonConstant.EXCEPTION.getName(), e);
+			errorMessage = new ErrorMessageDTO(500, new Date(), "No hay conexión, Directorio Activo");
+			ldapResponseDTO = new LdapResponseDTO();
+			ldapResponseDTO.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE.value());
+			ldapResponseDTO.setErrorMessageDTO(errorMessage);
+			return new ResponseEntity<>(ldapResponseDTO,  HttpStatus.valueOf(ldapResponseDTO.getStatusCode()));
+		} finally {
+			ThreadContext.clearStack();
+			log.info("Finaliza autenticacion Token-LDAP");
+		}
+	}
+
+	/**
+	 * Metodo para obtener el Token, para el consumo de los microservicios.
+	 * 
+	 * @param userName - Alias del usuario.
+	 * @param x-api-id - Id de servicio que se va a consumir.
+	 * @param consumer-api-id - Nombre de la intefaz que lo va a consumir el microservicio.
+	 * @param functional-id - Acronimo de la funcionalidad.
+	 * @param transaction-id - Identificador de la transacción generado por UUDI.
+	 * @param refresh-token -Tiempo de duracion del refresh Token, si el valor es Cero, no se genera.
+	 * 
+	 * @return regresa el obejto TokenizerResponseDTO con los datos del Token
+	 * @throws Exception Excepción durante el proceso de generar el Token.
+	 * 
+	 */
+	@PostMapping("/auth-ldap")
+	public ResponseEntity<LdapResponseDTO> ldapAuth(
+			@RequestHeader(value = "credentials") String credentials,
+			@RequestHeader(value = "application") String application,
 			@RequestHeader(value = "consumer-api-id") String consumerApiId,
 			@RequestHeader(value = "functional-id") String functionalId,
 			@RequestHeader(value = "transaction-id") String transactionId) {
@@ -91,19 +156,19 @@ public class SecurityAuthController {
 			ThreadContext.put("ip", remoteHost);
 
 			log.info("Inicia autenticacion LDAP");
-			securityAuthDTO = new SecurityAuthDTO(credentials, null,null, jwtToken, consumerApiId, functionalId, transactionId);
-			ldapResponseDTO = iSecurityAuthInputPort.autentication(securityAuthDTO);
+			securityAuthDTO = new SecurityAuthDTO(credentials, null,null, null, application, consumerApiId, functionalId, transactionId);
+			ldapResponseDTO = iSecurityAuthInputPort.authenticationLdap(securityAuthDTO);
 			
-			// Valida el resultado en la generacio del token
+			// Valida el resultado 
 			if (ldapResponseDTO.getStatusCode() == 200) {
-				log.info("Se genera el token correctamente");
+				log.info("Datos correctos");
 				return new ResponseEntity<>(ldapResponseDTO, HttpStatus.OK);
 			} else {
 				log.info("No tiene los permisos para generar el token");
 				return new ResponseEntity<>(ldapResponseDTO, HttpStatus.valueOf(ldapResponseDTO.getStatusCode()) );
 			}
 		} catch (IllegalArgumentException eil) {
-			log.error(eil.getMessage(), eil);
+			log.error(CommonConstant.ILLEGAL_ARG_EXCEPTION.getName(), eil);
 			errorMessage = new ErrorMessageDTO(HttpStatus.INTERNAL_SERVER_ERROR.value(), new Date(), eil.getMessage());
 			ldapResponseDTO = new LdapResponseDTO();
 			ldapResponseDTO.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
@@ -111,8 +176,8 @@ public class SecurityAuthController {
 			return new ResponseEntity<>(ldapResponseDTO, HttpStatus.valueOf(ldapResponseDTO.getStatusCode()));
 		}  catch (Exception e) {
 			e.printStackTrace();
-			log.error("No hay conexión, Directorio Activo");
-			log.error(e.getMessage(), e);
+			log.error(CommonConstant.COMMUNICATION_EXCEPTION_LDAP.getName());
+			log.error(CommonConstant.EXCEPTION.getName(), e);
 			errorMessage = new ErrorMessageDTO(500, new Date(), "No hay conexión, Directorio Activo");
 			ldapResponseDTO = new LdapResponseDTO();
 			ldapResponseDTO.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE.value());
@@ -123,19 +188,15 @@ public class SecurityAuthController {
 			log.info("Finaliza autenticacion LDAP");
 		}
 	}
-
+	
+	
 	/**
-	 * Metodo para obtener el Token, para el consumo de los microservicios.
+	 * Metodo para obtener encriptar una cadena.
 	 * 
-	 * @param userName - Alias del usuario.
-	 * @param x-api-id - Id de servicio que se va a consumir.
-	 * @param consumer-api-id - Nombre de la intefaz que lo va a consumir el microservicio.
-	 * @param functional-id - Acronimo de la funcionalidad.
-	 * @param transaction-id - Identificador de la transacción generado por UUDI.
-	 * @param refresh-token -Tiempo de duracion del refresh Token, si el valor es Cero, no se genera.
+	 * @param data datos a desecriptar.
 	 * 
-	 * @return regresa el obejto TokenizerResponseDTO con los datos del Token
-	 * @throws Exception Excepción durante el proceso de generar el Token.
+ 	 * @return CipherResponseDTO objeto que contien los dato encriptados.
+	 * @throws Exception Excepción durante el proceso.
 	 * 
 	 */
 	@PostMapping("/encode")
@@ -148,11 +209,11 @@ public class SecurityAuthController {
 
 		try {
 			log.info("Inicia controller encode");
-			securityAuthDTO = new SecurityAuthDTO(data, null,null, null, null, null,null);
+			securityAuthDTO = new SecurityAuthDTO(data, null,null, null, null, null, null,null);
 
 			cipherResponseDTO = iSecurityAuthInputPort.encode(securityAuthDTO);
 			
-			// Valida el resultado en la generacio del token
+			// Valida el resultado
 			if (cipherResponseDTO.getStatusCode() == 200) {
 				log.info("Se genera el token correctamente");
 				return new ResponseEntity<>(cipherResponseDTO, HttpStatus.OK);
@@ -160,20 +221,11 @@ public class SecurityAuthController {
 				log.info("No tiene los permisos para generar el token");
 				return new ResponseEntity<>(cipherResponseDTO, HttpStatus.valueOf(cipherResponseDTO.getStatusCode()) );
 			}
-		} catch (IllegalArgumentException eil) {
-			log.error(eil.getMessage(), eil);
-			errorMessage = new ErrorMessageDTO(HttpStatus.INTERNAL_SERVER_ERROR.value(), new Date(), eil.getMessage());
+		}  catch (Exception e) {
+			log.error(CommonConstant.EXCEPTION.getName(), e);
+			errorMessage = new ErrorMessageDTO(HttpStatus.INTERNAL_SERVER_ERROR.value(), new Date(), e.getMessage());
 			cipherResponseDTO = new CipherResponseDTO();
 			cipherResponseDTO.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
-			cipherResponseDTO.setErrorMessageDTO(errorMessage);
-			return new ResponseEntity<>(cipherResponseDTO, HttpStatus.valueOf(cipherResponseDTO.getStatusCode()));
-		}  catch (Exception e) {
-			e.printStackTrace();
-			log.error("No hay conexión, Directorio Activo");
-			log.error(e.getMessage(), e);
-			errorMessage = new ErrorMessageDTO(500, new Date(), "No hay conexión, Directorio Activo");
-			cipherResponseDTO = new CipherResponseDTO();
-			cipherResponseDTO.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE.value());
 			cipherResponseDTO.setErrorMessageDTO(errorMessage);
 			return new ResponseEntity<>(cipherResponseDTO,  HttpStatus.valueOf(cipherResponseDTO.getStatusCode()));
 		} finally {
@@ -182,20 +234,15 @@ public class SecurityAuthController {
 	}
 	
 	/**
-	 * Metodo para obtener el Token, para el consumo de los microservicios.
+	 * Metodo para obtener desencriptar una cadena.
 	 * 
-	 * @param userName - Alias del usuario.
-	 * @param x-api-id - Id de servicio que se va a consumir.
-	 * @param consumer-api-id - Nombre de la intefaz que lo va a consumir el microservicio.
-	 * @param functional-id - Acronimo de la funcionalidad.
-	 * @param transaction-id - Identificador de la transacción generado por UUDI.
-	 * @param refresh-token -Tiempo de duracion del refresh Token, si el valor es Cero, no se genera.
+	 * @param data datos a desecriptar.
 	 * 
-	 * @return regresa el obejto TokenizerResponseDTO con los datos del Token
-	 * @throws Exception Excepción durante el proceso de generar el Token.
+ 	 * @return regresa la cadena desencriptada.
+	 * @throws Exception Excepción durante el proceso.
 	 * 
 	 */
-	@PostMapping("/dencode")
+	@PostMapping("/decode")
 	public ResponseEntity<CipherResponseDTO> dencode(
 			@RequestHeader(value = "data") String data) {
 
@@ -205,30 +252,21 @@ public class SecurityAuthController {
 
 		try {
 			log.info("Inicia controller encode");
-			securityAuthDTO = new SecurityAuthDTO(data, null,null, null, null, null,null);
+			securityAuthDTO = new SecurityAuthDTO(data, null,null, null, null, null, null,null);
 
-			cipherResponseDTO = iSecurityAuthInputPort.dencode(securityAuthDTO);
+			cipherResponseDTO = iSecurityAuthInputPort.decode(securityAuthDTO);
 			
-			// Valida el resultado en la generacio del token
+			// Valida el resultado 
 			if (cipherResponseDTO.getStatusCode() == 200) {
-				log.info("Se genera el token correctamente");
+				log.info("Se genera el decode correctamente");
 				return new ResponseEntity<>(cipherResponseDTO, HttpStatus.OK);
 			} else {
-				log.info("No tiene los permisos para generar el token");
+				log.info("No se genera el decode");
 				return new ResponseEntity<>(cipherResponseDTO, HttpStatus.valueOf(cipherResponseDTO.getStatusCode()) );
 			}
-		} catch (IllegalArgumentException eil) {
-			log.error(eil.getMessage(), eil);
-			errorMessage = new ErrorMessageDTO(HttpStatus.INTERNAL_SERVER_ERROR.value(), new Date(), eil.getMessage());
-			cipherResponseDTO = new CipherResponseDTO();
-			cipherResponseDTO.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
-			cipherResponseDTO.setErrorMessageDTO(errorMessage);
-			return new ResponseEntity<>(cipherResponseDTO, HttpStatus.valueOf(cipherResponseDTO.getStatusCode()));
-		}  catch (Exception e) {
-			e.printStackTrace();
-			log.error("No hay conexión, Directorio Activo");
-			log.error(e.getMessage(), e);
-			errorMessage = new ErrorMessageDTO(500, new Date(), "No hay conexión, Directorio Activo");
+		} catch (Exception e) {
+			log.error(CommonConstant.EXCEPTION.getName(), e);
+			errorMessage = new ErrorMessageDTO(500, new Date(), e.getMessage());
 			cipherResponseDTO = new CipherResponseDTO();
 			cipherResponseDTO.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE.value());
 			cipherResponseDTO.setErrorMessageDTO(errorMessage);

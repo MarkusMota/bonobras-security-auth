@@ -1,8 +1,19 @@
 package com.mx.banobras.security.auth.application.inputport;
 
+/**
+ * ISecurityAuthInputPort.java:
+ * 
+ * Interfaz que contiene los metodos del caso de uso de la Autenticacion.
+ * 
+ * @author Marcos Gonzalez
+ * @version 1.0, 13/06/2024
+ * @see Documento "MAR - Marco Arquitectonico de Referencia"
+ * @since JDK 17
+ */
+
+
 import com.mx.banobras.security.auth.infraestructure.config.dto.SecurityAuthDTO;
 import com.mx.banobras.security.auth.infraestructure.config.dto.CipherResponseDTO;
-import com.mx.banobras.security.auth.infraestructure.config.dto.DataDTO;
 import com.mx.banobras.security.auth.infraestructure.config.dto.LdapResponseDTO;
 
 
@@ -10,31 +21,40 @@ import com.mx.banobras.security.auth.infraestructure.config.dto.LdapResponseDTO;
 public interface ISecurityAuthInputPort {
 
 	/**
-	 * Metodo para obtener el Token, para el consumo de los microservicios.
+	 * Metodo para obtener validar el token y autenticación con LDAP.
 	 * 
-	 * @param securityAuthDTO - DTO que contien los datos para generar el token.
-	 * @return regresa el objeto con el token.
+	 * @param securityAuthDTO - DTO que contien los datos para validar en LDAP y Tokenizer.
+	 * @return regresa el objeto con los datos de LDAP.
 	 * @throws Exception Excepción durante el proceso de generar el Token.
 	 */
-	public LdapResponseDTO autentication(SecurityAuthDTO securityAuthDTO);
+	public LdapResponseDTO authenticationTokenLdap(SecurityAuthDTO securityAuthDTO);
 	
 	/**
-	 * Metodo para obtener cifrar una cedena.
+	 * Metodo para obtener la autenticación con LDAP.
 	 * 
-	 * @param securityAuthDTO - DTO que contien los datos para cifrar.
-	 * @return regresa el objeto cifrado.
-	 * @throws Exception Excepción durante el proceso de generar el Token.
+	 * @param securityAuthDTO - DTO que contien los datos para validar en LDAP.
+	 * @return regresa el objeto con los datos de LDAP.
+	 * @throws Exception Excepción durante el proceso.
+	 */
+	public LdapResponseDTO authenticationLdap(SecurityAuthDTO securityAuthDTO);
+	
+	/**
+	 * Metodo para obtener encirptar una cedena.
+	 * 
+	 * @param securityAuthDTO - DTO que contien los datos para encirptar.
+	 * @return regresa el objeto encirptado.
+	 * @throws Exception Excepción durante el proceso.
 	 */
 	public CipherResponseDTO encode(SecurityAuthDTO securityAuthDTO);
 	
 	/**
-	 * Metodo para obtener descifrar una cedena.
+	 * Metodo para obtener desencirptar una cedena.
 	 * 
-	 * @param securityAuthDTO - DTO que contien los datos para cifrar.
-	 * @return regresa el objeto descifrado.
-	 * @throws Exception Excepción durante el proceso de generar el Token.
+	 * @param securityAuthDTO - DTO que contien los datos para desencirptar.
+	 * @return regresa el objeto desencirptado.
+	 * @throws Exception Excepción durante el proceso.
 	 */
-	public CipherResponseDTO dencode(SecurityAuthDTO securityAuthDTO);
+	public CipherResponseDTO decode(SecurityAuthDTO securityAuthDTO);
 	
 	
 }

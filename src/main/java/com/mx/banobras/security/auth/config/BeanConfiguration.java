@@ -3,11 +3,11 @@ package com.mx.banobras.security.auth.config;
 /**
  * BeanConfiguration.java:
  * 
- * Clase para la configuracion de los servicios 
+ * Clase de configuracion de BEANS.
  *  
  * @author Marcos Gonzalez
  * @version 1.0, 13/06/2024
- * @see documento "MAR - Marco Arquitectonico de Referencia"
+ * @see Documento "MAR - Marco Arquitectonico de Referencia"
  * @since JDK 17
  */
 
@@ -24,10 +24,11 @@ import com.mx.banobras.security.auth.common.util.CipherAESCommon;
 public class BeanConfiguration {
 
 	/**
-	 * Metodo para obtener crear la inyección del servicio del Token.
+	 * Metodo para obtener crear la inyección del caso de uso de Autenticaion.
 	 * 
 	 * @param tokenizer - Objeto Toenizer para crear el token.
 	 * @param iLdapOutPort - Interfaz para validar con LDAP el usuario.
+	 * @param CipherAESCommon - Componente para cifrar datos.
 	 * 
 	 * @throws none.
 	 */

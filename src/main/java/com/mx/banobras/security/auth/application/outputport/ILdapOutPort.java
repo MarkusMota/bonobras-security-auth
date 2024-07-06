@@ -21,10 +21,10 @@ public interface ILdapOutPort {
 	/**
 	 * Metodo para buscar el usuario.
 	 * 
-	 * @param userName Nombre de usuario a buscar
-	 * @return regresa un valor booleano, si es verdadero, si existe el usuario 
+	 * @param securityAuthDTO componente que conciten el usuario a buscar.
+	 * @return LdapVO objeto que contiene los datos de usario en LDAP. 
 	 * 
-	 * @throws Exception Excepción durante el proceso de generar el Token.
+	 * @throws NamingException Excepción durante el proces.
 	 */
 	public LdapVO autentication(SecurityAuthDTO securityAuthDTO) throws NamingException;
 	

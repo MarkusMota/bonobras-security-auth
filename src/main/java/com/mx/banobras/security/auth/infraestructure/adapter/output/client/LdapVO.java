@@ -1,6 +1,15 @@
 package com.mx.banobras.security.auth.infraestructure.adapter.output.client;
 
-
+/**
+ * LdapVO.java:
+ * 
+ * Objeto que contiene los datos del usuario en LDAP. 
+ *  
+ * @author Marcos Gonzalez
+ * @version 1.0, 13/06/2024
+ * @see Documento "MAR - Marco Arquitectonico de Referencia"
+ * @since JDK 17
+ */
 
 import java.util.List;
 

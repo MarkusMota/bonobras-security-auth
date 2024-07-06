@@ -28,13 +28,13 @@ import com.mx.banobras.security.auth.application.outputport.ITokenClientOutPort;
 import com.mx.banobras.security.auth.common.util.CipherAESCommon;
 import com.mx.banobras.security.auth.common.util.CommonConstant;
 import com.mx.banobras.security.auth.infraestructure.adapter.output.client.LdapVO;
-import com.mx.banobras.security.auth.infraestructure.adapter.output.client.MapperLdapDTO;
-import com.mx.banobras.security.auth.infraestructure.adapter.output.client.TokenizerResponseDTO;
+import com.mx.banobras.security.auth.infraestructure.adapter.output.client.LdapVOMappeDTO;
 import com.mx.banobras.security.auth.infraestructure.config.dto.CipherResponseDTO;
 import com.mx.banobras.security.auth.infraestructure.config.dto.DataDTO;
 import com.mx.banobras.security.auth.infraestructure.config.dto.ErrorMessageDTO;
 import com.mx.banobras.security.auth.infraestructure.config.dto.LdapDTO;
 import com.mx.banobras.security.auth.infraestructure.config.dto.SecurityAuthDTO;
+import com.mx.banobras.security.auth.infraestructure.config.dto.TokenizerResponseDTO;
 import com.mx.banobras.security.auth.infraestructure.config.dto.LdapResponseDTO;
 
 @Service
@@ -51,10 +51,11 @@ public class SecurityAuthUseCaseService implements ISecurityAuthInputPort {
 	private final CipherAESCommon cipherAESCommon;
 
 	/**
-	 * Constructor para inyectar los objetos Tokenizer, ILdapOutPort
+	 * Constructor para inyectar los objetos Tokenizer, ILdapOutPort y CipherAESCommon
 	 * 
-	 * @param tokenizer    Objeto de dominio el Api Tokenizer
-	 * @param iLdapOutPort Interface de puerto de salida para conectarse al LDAP
+	 * @param tokenizer    Objeto de dominio el Api Tokenizer.
+	 * @param iLdapOutPort Interface de puerto de salida para conectarse al LDAP.
+	 * @param CipherAESCommon componente para desencriptar datos.
 	 * 
 	 */
 	public SecurityAuthUseCaseService(ILdapOutPort iLdapOutPort, ITokenClientOutPort iTokenClientOutPort,
@@ -65,15 +66,14 @@ public class SecurityAuthUseCaseService implements ISecurityAuthInputPort {
 	}
 
 	/**
-	 * Metodo para crear el Token
+	 * Metodo para validar el Token y autenticar el usuario.
 	 * 
-	 * @param tokenizerDTO Objeto que contien los datos para generar el toekn.
-	 * @return TokenizerResponseDTO regresa el objeto TokenizerResponseDTO que
-	 *         contiene los datos del toekn.
+	 * @param securityAuthDTO Objeto que contien los datos para la validación y autenticacion.
+	 * @return LdapResponseDTO objeto que contiene los datos del usuario en LDAP.
 	 * 
 	 */
 	@Override
-	public LdapResponseDTO autentication(SecurityAuthDTO securityAuthDTO) {
+	public LdapResponseDTO authenticationTokenLdap(SecurityAuthDTO securityAuthDTO) {
 
 		/** Variable que contiene el objeto de respuesta del token */
 		LdapResponseDTO ldapResponseDTO = null;
@@ -87,8 +87,7 @@ public class SecurityAuthUseCaseService implements ISecurityAuthInputPort {
 			}
 			/** Descripta las credenciales */
 			securityAuthDTO = cipherAESCommon.getDataCredentials(securityAuthDTO);
-
-			securityAuthDTO = cipherAESCommon.getDataCredentials(securityAuthDTO);
+			
 			log.info("Valida el token");
 			responseToken = iTokenClientOutPort.getTokenAuthorization(securityAuthDTO);
 			if (responseToken.statusCode() == 200) {
@@ -96,7 +95,7 @@ public class SecurityAuthUseCaseService implements ISecurityAuthInputPort {
 						.append(securityAuthDTO.getUserName()));
 				ldapVO = iLdapOutPort.autentication(securityAuthDTO);
 				if (ldapVO != null) {
-					MapperLdapDTO mapperLdapDTO = new MapperLdapDTO();
+					LdapVOMappeDTO mapperLdapDTO = new LdapVOMappeDTO();
 					LdapDTO ldapDTO = mapperLdapDTO.mapperVOtoDTO(ldapVO);
 					ldapResponseDTO = new LdapResponseDTO();
 					ldapResponseDTO.setStatusCode(HttpStatus.OK.value());
@@ -140,7 +139,7 @@ public class SecurityAuthUseCaseService implements ISecurityAuthInputPort {
 			ldapResponseDTO.setErrorMessageDTO(message);
 			Thread.currentThread().interrupt();
 		} catch (CommunicationException ex0) {
-			log.error("CommunicationException");
+			log.error(CommonConstant.COMMUNICATION_EXCEPTION_LDAP.getName());
 			log.error(CommonConstant.MSG_NO_SERVICE_LDAP.getName(), ex0);
 			ErrorMessageDTO message = new ErrorMessageDTO(HttpStatus.SERVICE_UNAVAILABLE.value(), new Date(),
 					CommonConstant.MSG_NO_SERVICE_LDAP.getName());
@@ -148,7 +147,7 @@ public class SecurityAuthUseCaseService implements ISecurityAuthInputPort {
 			ldapResponseDTO.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE.value());
 			ldapResponseDTO.setErrorMessageDTO(message);
 		} catch (IllegalArgumentException eil) {
-			log.error("IllegalArgumentException", eil);
+			log.error(CommonConstant.ILLEGAL_ARG_EXCEPTION.getName(), eil);
 			ErrorMessageDTO errorMessage = new ErrorMessageDTO(HttpStatus.INTERNAL_SERVER_ERROR.value(), new Date(),
 					eil.getMessage());
 			ldapResponseDTO = new LdapResponseDTO();
@@ -156,7 +155,7 @@ public class SecurityAuthUseCaseService implements ISecurityAuthInputPort {
 			ldapResponseDTO.setErrorMessageDTO(errorMessage);
 
 		} catch (Exception ex1) {
-			log.error("Exception", ex1);
+			log.error(CommonConstant.EXCEPTION.getName(), ex1);
 			ErrorMessageDTO message = new ErrorMessageDTO(HttpStatus.INTERNAL_SERVER_ERROR.value(), new Date(),
 					ex1.getMessage());
 			ldapResponseDTO = new LdapResponseDTO();
@@ -173,6 +172,65 @@ public class SecurityAuthUseCaseService implements ISecurityAuthInputPort {
 	 * @return TokenizerResponseDTO regresa el objeto TokenizerResponseDTO que
 	 *         contiene los datos del toekn.
 	 * 
+	 */
+	@Override
+	public LdapResponseDTO authenticationLdap(SecurityAuthDTO securityAuthDTO) {
+
+		/** Variable que contiene el objeto de respuesta de LDAP */
+		LdapResponseDTO ldapResponseDTO = null;
+		LdapVO ldapVO = null;
+
+		try {
+			if (securityAuthDTO.getCredentials().isEmpty()) {
+				throw new IllegalArgumentException(CommonConstant.MSG_CREDENTIALS_EMPTY.getName());
+			}
+			/** Descripta las credenciales */
+			securityAuthDTO = cipherAESCommon.getDataCredentials(securityAuthDTO);
+
+			log.info(new StringBuilder().append("Valida si existe el usuario en LDAP: ")
+					.append(securityAuthDTO.getUserName()));
+			ldapVO = iLdapOutPort.autentication(securityAuthDTO);
+			if (ldapVO != null) {
+				LdapVOMappeDTO mapperLdapDTO = new LdapVOMappeDTO();
+				LdapDTO ldapDTO = mapperLdapDTO.mapperVOtoDTO(ldapVO);
+				ldapResponseDTO = new LdapResponseDTO();
+				ldapResponseDTO.setStatusCode(HttpStatus.OK.value());
+				ldapResponseDTO.setLdapDTO(ldapDTO);
+			}
+		
+		} catch (CommunicationException ex0) {
+			log.error(CommonConstant.COMMUNICATION_EXCEPTION_LDAP.getName());
+			log.error(CommonConstant.MSG_NO_SERVICE_LDAP.getName(), ex0);
+			ErrorMessageDTO message = new ErrorMessageDTO(HttpStatus.SERVICE_UNAVAILABLE.value(), new Date(),
+					CommonConstant.MSG_NO_SERVICE_LDAP.getName());
+			ldapResponseDTO = new LdapResponseDTO();
+			ldapResponseDTO.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE.value());
+			ldapResponseDTO.setErrorMessageDTO(message);
+		} catch (IllegalArgumentException eil) {
+			log.error(CommonConstant.ILLEGAL_ARG_EXCEPTION.getName(), eil);
+			ErrorMessageDTO errorMessage = new ErrorMessageDTO(HttpStatus.INTERNAL_SERVER_ERROR.value(), new Date(),
+					eil.getMessage());
+			ldapResponseDTO = new LdapResponseDTO();
+			ldapResponseDTO.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
+			ldapResponseDTO.setErrorMessageDTO(errorMessage);
+
+		} catch (Exception ex1) {
+			log.error(CommonConstant.EXCEPTION.getName(), ex1);
+			ErrorMessageDTO message = new ErrorMessageDTO(HttpStatus.INTERNAL_SERVER_ERROR.value(), new Date(),
+					ex1.getMessage());
+			ldapResponseDTO = new LdapResponseDTO();
+			ldapResponseDTO.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
+			ldapResponseDTO.setErrorMessageDTO(message);
+		}
+		return ldapResponseDTO;
+	}
+
+	/**
+	 * Metodo para obtener encirptar una cedena.
+	 * 
+	 * @param securityAuthDTO - DTO que contien los datos para encirptar.
+	 * @return regresa el objeto encirptado.
+	 * @throws Exception Excepción durante el proceso.
 	 */
 	@Override
 	public CipherResponseDTO encode(SecurityAuthDTO securityAuthDTO) {
@@ -193,7 +251,7 @@ public class SecurityAuthUseCaseService implements ISecurityAuthInputPort {
 			cipherResponseDTO.setStatusCode(HttpStatus.OK.value());
 
 		} catch (IllegalArgumentException eil) {
-			log.error("IllegalArgumentException", eil);
+			log.error(CommonConstant.ILLEGAL_ARG_EXCEPTION.getName(), eil);
 			ErrorMessageDTO errorMessage = new ErrorMessageDTO(HttpStatus.INTERNAL_SERVER_ERROR.value(), new Date(),
 					eil.getMessage());
 			cipherResponseDTO = new CipherResponseDTO();
@@ -201,7 +259,7 @@ public class SecurityAuthUseCaseService implements ISecurityAuthInputPort {
 			cipherResponseDTO.setErrorMessageDTO(errorMessage);
 
 		} catch (Exception ex1) {
-			log.error("Exception", ex1);
+			log.error(CommonConstant.EXCEPTION.getName(), ex1);
 			ErrorMessageDTO message = new ErrorMessageDTO(HttpStatus.INTERNAL_SERVER_ERROR.value(), new Date(),
 					ex1.getMessage());
 			cipherResponseDTO = new CipherResponseDTO();
@@ -211,22 +269,21 @@ public class SecurityAuthUseCaseService implements ISecurityAuthInputPort {
 		log.info("Termina encode service");
 		return cipherResponseDTO;
 	}
-	
+
 	/**
-	 * Metodo para crear el Token
+	 * Metodo para obtener desencirptar una cedena.
 	 * 
-	 * @param tokenizerDTO Objeto que contien los datos para generar el toekn.
-	 * @return TokenizerResponseDTO regresa el objeto TokenizerResponseDTO que
-	 *         contiene los datos del toekn.
-	 * 
+	 * @param securityAuthDTO - DTO que contien los datos para desencirptar.
+	 * @return regresa el objeto desencirptado.
+	 * @throws Exception Excepción durante el proceso.
 	 */
 	@Override
-	public CipherResponseDTO dencode(SecurityAuthDTO securityAuthDTO) {
+	public CipherResponseDTO decode(SecurityAuthDTO securityAuthDTO) {
 
 		/** Variable que contiene el objeto de respuesta del token */
 		CipherResponseDTO cipherResponseDTO = null;
 		String data = null;
-		log.info("Inicia encode service");
+		log.info("Inicia decode service");
 		try {
 			if (securityAuthDTO.getCredentials().isEmpty()) {
 				throw new IllegalArgumentException(CommonConstant.MSG_CREDENTIALS_EMPTY.getName());
@@ -239,7 +296,7 @@ public class SecurityAuthUseCaseService implements ISecurityAuthInputPort {
 			cipherResponseDTO.setStatusCode(HttpStatus.OK.value());
 
 		} catch (IllegalArgumentException eil) {
-			log.error("IllegalArgumentException", eil);
+			log.error(CommonConstant.ILLEGAL_ARG_EXCEPTION.getName(), eil);
 			ErrorMessageDTO errorMessage = new ErrorMessageDTO(HttpStatus.INTERNAL_SERVER_ERROR.value(), new Date(),
 					eil.getMessage());
 			cipherResponseDTO = new CipherResponseDTO();
@@ -247,14 +304,14 @@ public class SecurityAuthUseCaseService implements ISecurityAuthInputPort {
 			cipherResponseDTO.setErrorMessageDTO(errorMessage);
 
 		} catch (Exception ex1) {
-			log.error("Exception", ex1);
+			log.error(CommonConstant.EXCEPTION.getName(), ex1);
 			ErrorMessageDTO message = new ErrorMessageDTO(HttpStatus.INTERNAL_SERVER_ERROR.value(), new Date(),
 					ex1.getMessage());
 			cipherResponseDTO = new CipherResponseDTO();
 			cipherResponseDTO.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
 			cipherResponseDTO.setErrorMessageDTO(message);
 		}
-		log.info("Termina encode service");
+		log.info("Termina decode service");
 		return cipherResponseDTO;
 	}
 

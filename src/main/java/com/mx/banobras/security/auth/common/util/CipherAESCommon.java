@@ -27,6 +27,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.codec.Hex;
 import org.springframework.stereotype.Component;
 
@@ -46,13 +47,26 @@ public class CipherAESCommon {
 	}
 
 	/** Constante de la llave secreta */
-	private static final String CIPHER_KEY = System.getenv().get("CIPHER_KEY");
+	/** private static final String CIPHER_KEY = System.getenv().get("CIPHER_KEY"); */
 	/** Constante del vector de cifrado */
-	private static final String CIPHER_IV = System.getenv().get("CIPHER_IV");
+	/** private static final String CIPHER_IV = System.getenv().get("CIPHER_IV"); */
 	/** Constante de la tipo de cifrado */
-	private static final String CIPHER_AES = System.getenv().get("CIPHER_AES");
+	/** private static final String CIPHER_AES = System.getenv().get("CIPHER_AES"); */
 	/** Constante del modo de cifrado */
-	private static final String CIPHER_MODE = System.getenv().get("CIPHER_MODE");
+	/** private static final String CIPHER_MODE = System.getenv().get("CIPHER_MODE"); */
+	
+	/** Constante de la llave secreta */
+	@Value("${app.cipher.key}")
+	String cipherKey;
+	/** Constante del vector de cifrado */
+	@Value("${app.cipher.iv}")
+	String cipherIV;
+	/** Constante de la tipo de cifrado */
+	@Value("${app.cipher.aes}")
+	String cipherAES;
+	/** Constante del modo de cifrado */
+	@Value("${app.cipher.mode}")
+	String cipherMode;
 
 	/**
 	 * Metodo para encriptar un String y regresa en Hexadecimal la encirptacion
@@ -67,14 +81,14 @@ public class CipherAESCommon {
 			InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException {
 
 		try {
-			Cipher cipher = Cipher.getInstance(CIPHER_MODE);
+			Cipher cipher = Cipher.getInstance(cipherMode);
 			byte[] dataBytes = plainTextData.getBytes();
 			int plaintextLength = dataBytes.length;
 			byte[] plaintext = new byte[plaintextLength];
 			System.arraycopy(dataBytes, 0, plaintext, 0, dataBytes.length);
 
-			SecretKeySpec keyspec = new SecretKeySpec(CIPHER_KEY.getBytes(), CIPHER_AES);
-			IvParameterSpec ivspec = new IvParameterSpec(CIPHER_IV.getBytes());
+			SecretKeySpec keyspec = new SecretKeySpec(cipherKey.getBytes(), cipherAES);
+			IvParameterSpec ivspec = new IvParameterSpec(cipherIV.getBytes());
 
 			cipher.init(Cipher.ENCRYPT_MODE, keyspec, ivspec);
 			byte[] encrypted = cipher.doFinal(plaintext);
@@ -99,9 +113,9 @@ public class CipherAESCommon {
 	public String decryptAesHexToString(String cipherTextData) throws NoSuchAlgorithmException, NoSuchPaddingException,
 			InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException {
 		byte[] hexBytes = HexFormat.of().parseHex(cipherTextData);
-		Cipher cipher = Cipher.getInstance(CIPHER_MODE);
-		SecretKeySpec keyspec = new SecretKeySpec(CIPHER_KEY.getBytes(), CIPHER_AES);
-		IvParameterSpec ivspec = new IvParameterSpec(CIPHER_IV.getBytes());
+		Cipher cipher = Cipher.getInstance(cipherMode);
+		SecretKeySpec keyspec = new SecretKeySpec(cipherKey.getBytes(), cipherAES);
+		IvParameterSpec ivspec = new IvParameterSpec(cipherIV.getBytes());
 
 		cipher.init(Cipher.DECRYPT_MODE, keyspec, ivspec);
 
